@@ -4,56 +4,120 @@
 <body>
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script>
-
+//NOTE вспомогательные переменные
 var width = 960,
-    height = 500,
-    radius = 13;
-
-
-var nodes = d3.range(200).map(function() { return {radius: radius}; }),
-    root = nodes[0],
-    color = d3.scale.category10();
-
+	height = 500,
+	radius = 10,
+	number =101,
+	color = d3.scale.category10().domain(['blue','orange','green','red']),
+	nodes = d3.range(number).map(function() {
+		var pos = {x:0, y:0, dx:.5, dy:.5, radius:radius};
+		calcStartPosition(pos)
+		return pos;
+	}),
+	root = nodes[0];
+//NOTE определяем стартовую позицию
+function calcStartPosition(pos){
+	var borderPos = {xMin: pos.r, xMax: width - pos.r, yMin: pos.r, yMax: height - pos.r};
+	pos.x = width * Math.random();
+	if(pos.x < borderPos.xMin) pos.x = borderPos.xMin;
+	if(pos.x > borderPos.xMax) pos.x = borderPos.xMax;
+	pos.y = height * Math.random();
+	if(pos.y < borderPos.yMin) pos.y = borderPos.yMin;
+	if(pos.y > borderPos.yMax) pos.y = borderPos.yMax;
+	pos.dx = Math.random() - .5;
+	pos.dy = Math.random() - .5;
+}
 root.radius = 0;
 root.fixed = true;
 
-var force = d3.layout.force()
-    .gravity(0.05)
-    .charge(function(d, i) { return i ? 0 : -2000; })
-    .nodes(nodes)
-    .size([width, height]);
+//NOTE создаем svg по заданным параметрам
+var svg = d3.select("body").append("svg:svg")
+		.attr("width", width)
+		.attr("height", height)
+		.style("border", "1px solid black");
 
-force.start();
+//NOTE пихаем в svg точки
+var circle = svg.selectAll("circle")
+		.data(nodes)
+	.enter().append("svg:circle")
+	.attr("r", function(d) {return d.radius})
+	.style('fill', color('orange'));
 
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height);
+// var force = d3.layout.force().charge(function(d,i){return i ? -10 : -10; }).nodes(nodes).size([width, height]);
+// var force = d3.layout.force()
+//     // .gravity(0.05)
+//     .charge(function(d, i) { return i ? 0 : -2000; })
+//     .nodes(nodes)
+//     .size([width, height]);
+// force.start();
+// force.on("tick", function(e) {
+//   var q = d3.geom.quadtree(nodes),
+//       i = 0,
+//       n = nodes.length;
 
-svg.selectAll("circle")
-    .data(nodes.slice(1))
-  .enter().append("circle")
-    .attr("r", function(d) { return d.radius; })
-    .style("fill", function(d, i) { return color(i % 3); });
+//   while (++i < n) q.visit(collide(nodes[i]));
 
-force.on("tick", function(e) {
-  var q = d3.geom.quadtree(nodes),
+//   svg.selectAll("circle")
+//       .attr("cx", function(d) { return d.x; })
+//       .attr("cy", function(d) { return d.y; });
+// });
+// svg.on("mousemove", function() {
+//   var p1 = d3.mouse(this);
+//   root.px = p1[0];
+//   root.py = p1[1];
+//   force.resume();
+// });
+
+//NOTE вывести счетчик фреймов
+var text = svg.append("svg:text")
+		.attr("x", 20)
+		.attr("y", 20);
+
+//NOTE вспомогательные переменные для таймера
+var start = Date.now(),
+		frames = 0;
+
+d3.timer(function() {
+
+	//NOTE обновление счетчика
+	var now = Date.now(), duration = now - start;
+	text.text(~~(++frames * 1000 / duration));
+	if (duration >= 1000) frames = 0, start = now;
+
+	//NOTE обновление позиции точки
+	circle
+			.attr("cx", function(d) { 
+					d.x += d.dx; 
+					if (d.x > (width - radius)) {
+						d.dx = -1 * d.dx;
+						d.x = (width - radius);
+					} else if (d.x < radius) {
+						d.dx = -1 * d.dx;
+						d.x = radius;
+					}
+					return d.x;  
+				})
+			.attr("cy", function(d) { 
+				d.y += d.dy; 
+				if (d.y > (height - radius)) {
+					d.dy = -1 * d.dy; 
+					d.y = (height - radius);
+				} else if (d.y < radius) {
+					d.dy = -1 * d.dy;
+					d.y = radius;
+				}
+				return d.y; 
+			})
+			.transition().style('fill', function(){
+				return color('red');
+			});
+	 var q = d3.geom.quadtree(nodes),
       i = 0,
       n = nodes.length;
 
   while (++i < n) q.visit(collide(nodes[i]));
-
-  svg.selectAll("circle")
-      .attr("cx", function(d) { return d.x; })
-      .attr("cy", function(d) { return d.y; });
 });
-
-svg.on("mousemove", function() {
-  var p1 = d3.mouse(this);
-  root.px = p1[0];
-  root.py = p1[1];
-  force.resume();
-});
-
 function collide(node) {
   var r = node.radius + 16,
       nx1 = node.x - r,
@@ -68,6 +132,10 @@ function collide(node) {
           r = node.radius + quad.point.radius;
       if (l < r) {
         l = (l - r) / l * .5;
+    	node.dx = -1 * node.dx;
+    	node.dy = -1 * node.dy;
+    	quad.point.dx = -1 * quad.point.dx;
+    	quad.point.dy = -1 * quad.point.dy;
         node.x -= x *= l;
         node.y -= y *= l;
         quad.point.x += x;
@@ -76,8 +144,7 @@ function collide(node) {
     }
     return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
   };
-}
-
+};
 </script>
 </body>
 </html>
