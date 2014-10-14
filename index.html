@@ -7,8 +7,8 @@
 //NOTE вспомогательные переменные
 var width = 960,
 	height = 500,
-	radius = 10,
-	number =101,
+	radius = 7,
+	number =201,
 	color = d3.scale.category10().domain(['blue','orange','green','red']),
 	nodes = d3.range(number).map(function() {
 		var pos = {x:0, y:0, dx:.5, dy:.5, radius:radius};
@@ -43,6 +43,9 @@ var circle = svg.selectAll("circle")
 	.enter().append("svg:circle")
 	.attr("r", function(d) {return d.radius})
 	.style('fill', color('orange'));
+circle.each(function(){
+  animateColorChange(d3.select(this), 'orange', 'red');
+});
 
 // var force = d3.layout.force().charge(function(d,i){return i ? -10 : -10; }).nodes(nodes).size([width, height]);
 // var force = d3.layout.force()
@@ -108,16 +111,19 @@ d3.timer(function() {
 					d.y = radius;
 				}
 				return d.y; 
-			})
-			.transition().style('fill', function(){
-				return color('red');
 			});
+      // 
 	 var q = d3.geom.quadtree(nodes),
       i = 0,
       n = nodes.length;
-
-  while (++i < n) q.visit(collide(nodes[i]));
+    while (++i < n) q.visit(collide(nodes[i]));
 });
+function animateColorChange(node, from, to){
+  node.transition().duration(Math.floor((Math.random() * 2900) + 100)).style('fill', color(to)).each('end', function(){
+      animateColorChange(d3.select(this), to, from);
+      //   e.transition().duration(100).style('fill', color('orange'));
+  })
+}
 function collide(node) {
   var r = node.radius + 16,
       nx1 = node.x - r,
