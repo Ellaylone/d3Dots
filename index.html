@@ -7,8 +7,8 @@
 //NOTE вспомогательные переменные
 var width = 960,
 	height = 500,
-	radius = 7,
-	number =201,
+	radius = 30,
+	number =51,
 	color = d3.scale.category10().domain(['blue','orange','green','red']),
 	nodes = d3.range(number).map(function() {
 		var pos = {x:0, y:0, dx:.5, dy:.5, radius:radius};
@@ -130,6 +130,7 @@ function collide(node) {
       nx2 = node.x + r,
       ny1 = node.y - r,
       ny2 = node.y + r;
+      console.log(node);
   return function(quad, x1, y1, x2, y2) {
     if (quad.point && (quad.point !== node)) {
       var x = node.x - quad.point.x,
@@ -138,10 +139,22 @@ function collide(node) {
           r = node.radius + quad.point.radius;
       if (l < r) {
         l = (l - r) / l * .5;
-    	node.dx = -1 * node.dx;
-    	node.dy = -1 * node.dy;
-    	quad.point.dx = -1 * quad.point.dx;
-    	quad.point.dy = -1 * quad.point.dy;
+      var dx = node.dx, dy = node.dy;
+      node.dx = quad.point.dx;
+      node.dy = quad.point.dy;
+      quad.point.dx = dx;
+      quad.point.dy = dy;
+      // var a = node.x-quad.point.x;
+      // var b = node.y-quad.point.y;
+      // var p1 = a * b,
+      // p2 = a * a,
+      // p3 = b * b;
+      // var d1 = node.dy * p1 + node.dx * p2 - quad.point.dx * p1 - quad.point.dy * p2,
+      // d2 = node.dy * p1 + node.dx * p3 - quad.point.dx * p1 - quad.point.dy * p3;
+      // node.dx = node.dx-d1;
+      // node.dy = node.hy-d2;
+      // quad.point.dx = quad.point.dx+d1;
+      // quad.point.dy = quad.point.hy+d2;
         node.x -= x *= l;
         node.y -= y *= l;
         quad.point.x += x;
