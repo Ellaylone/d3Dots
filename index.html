@@ -1,182 +1,210 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <body>
-<script src="http://d3js.org/d3.v3.min.js"></script>
-<script>
+	<script src="http://d3js.org/d3.v3.min.js"></script>
+	<script>
+	function setSvg(){
+		//NOTE создаем svg
+		return d3.select("body").append("svg")
+		.attr("width", width)
+		.attr("height", height)
+		.style("border", "1px solid black");
+	}
 
-var width = 960,
-  height = 500,
-  radius = 7,
-  number =21,
-  color = d3.scale.category10().domain(['blue','orange','green','red']),
-  nodes = d3.range(number).map(function() {
-    var pos = {x:0, y:0, dx:.5, dy:.5, radius:radius, cursor: false, rx: 0, ry: 0};
-    calcStartPosition(pos)
-    return pos;
-  });
-function calcStartPosition(pos){
-  var borderPos = {xMin: pos.r, xMax: width - pos.r, yMin: pos.r, yMax: height - pos.r};
-  pos.x = width * Math.random();
-  if(pos.x < borderPos.xMin) pos.x = borderPos.xMin;
-  if(pos.x > borderPos.xMax) pos.x = borderPos.xMax;
-  pos.y = height * Math.random();
-  if(pos.y < borderPos.yMin) pos.y = borderPos.yMin;
-  if(pos.y > borderPos.yMax) pos.y = borderPos.yMax;
-  pos.rx = pos.dx = Math.random()*3+1;
-  pos.ry = pos.dy = Math.random()*3+1;
-}
-cursor = nodes[0];
-cursor.force = 150;
-cursor.x = -cursor.force;
-cursor.y = -cursor.force;
-cursor.radius = cursor.force;
-cursor.cursor = true;
+	function calcStartParams(pos){
+		//NOTE рассчет параметров точки
+		var borderPos = {xMin: pos.r, xMax: width - pos.r, yMin: pos.r, yMax: height - pos.r};
+		pos.x = width * Math.random();
+		if(pos.x < borderPos.xMin) pos.x = borderPos.xMin;
+		if(pos.x > borderPos.xMax) pos.x = borderPos.xMax;
+		pos.y = height * Math.random();
+		if(pos.y < borderPos.yMin) pos.y = borderPos.yMin;
+		if(pos.y > borderPos.yMax) pos.y = borderPos.yMax;
+		pos.rx = pos.dx = Math.random()*3+1;
+		pos.ry = pos.dy = Math.random()*3+1;
+	}
 
-var svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .style("border", "1px solid black");
+	function setCursor(svg){
+		//NOTE параметры точки курсора
+		cursor = nodes[0];
+		cursor.force = 150;
+		cursor.x = -cursor.force;
+		cursor.y = -cursor.force;
+		cursor.radius = cursor.force;
+		cursor.cursor = true;
+		svg.on("mousemove", function() {
+			var p1 = d3.mouse(this);
+			cursor.x = p1[0];
+			cursor.y = p1[1];
+		});
+		svg.on("mouseleave", function() {
+			cursor.x = cursor.y = -cursor.force;
+		});
+	}
 
-var circle = svg.selectAll("circle")
-    .data(nodes.slice(1))
-  .enter().append("circle")
-    .attr("r", function(d) { return d.radius; })
-    .style('fill', color('orange'));
+	function setCircles(svg){
+		//NOTE пихаем в svg точки
+		var circles = svg.selectAll("circle")
+		.data(nodes.slice(1))
+		.enter().append("circle")
+		.attr("r", function(d) { return d.radius; })
+		.style('fill', color('orange'));
 
-circle.each(function(){
-  animateColorChange(d3.select(this), 'orange', 'red');
-});
+		circles.each(function(){
+			animateColorChange(d3.select(this), 'orange', 'red');
+		});
 
-function animateColorChange(node, from, to){
-  node.transition().duration(Math.floor((Math.random() * 2900) + 100)).style('fill', color(to)).each('end', function(){
-      animateColorChange(d3.select(this), to, from);
-  })
-}
+		return circles
+	}
 
-var text = svg.append("svg:text")
-    .attr("x", 20)
-    .attr("y", 20);
+	function animateColorChange(node, from, to){
+		//NOTE смена цвета точки
+		node.transition().duration(Math.floor((Math.random() * 2900) + 100)).style('fill', color(to)).each('end', function(){
+			animateColorChange(d3.select(this), to, from);
+		})
+	}
 
-var start = Date.now(),
-    frames = 0;
+	function setFrameCounter(svg){
+		//NOTE пихаем в svg счетчик фпс
+		return svg.append("svg:text")
+		.attr("x", 20)
+		.attr("y", 20);
+	}
+	function randomMovement(){
+		var now = Date.now(), duration = now - start;
+		text.text(~~(++frames * 1000 / duration));
+		if (duration >= 1000) frames = 0, start = now;
 
-d3.timer(function() {
-  var now = Date.now(), duration = now - start;
-  text.text(~~(++frames * 1000 / duration));
-  if (duration >= 1000) frames = 0, start = now;
+		circles
+		.attr("cx", function(d) { 
+			d.x += d.rx; 
+			//NOTE отражение от стенки
+			if (d.x > (width - radius)) {
+				d.rx = -1 * d.rx;
+				d.x = (width - radius);
+			} else if (d.x < radius) {
+				d.rx = -1 * d.rx;
+				d.x = radius;
+			}
+			return d.x;  
+		})
+		.attr("cy", function(d) {
+			d.y += d.ry; 
+			//NOTE отражение от стенки
+			if (d.y > (height - radius)) {
+				d.ry = -1 * d.ry; 
+				d.y = (height - radius);
+			} else if (d.y < radius) {
+				d.ry = -1 * d.ry;
+				d.y = radius;
+			}
+			return d.y; 
+		});
 
-  circle
-      .attr("cx", function(d) { 
-          d.x += d.rx; 
-          if (d.x > (width - radius)) {
-            d.rx = -1 * d.rx;
-            d.x = (width - radius);
-          } else if (d.x < radius) {
-            d.rx = -1 * d.rx;
-            d.x = radius;
-          }
-          return d.x;  
-        })
-      .attr("cy", function(d) {
-        d.y += d.ry; 
-        if (d.y > (height - radius)) {
-          d.ry = -1 * d.ry; 
-          d.y = (height - radius);
-        } else if (d.y < radius) {
-          d.ry = -1 * d.ry;
-          d.y = radius;
-        }
-        return d.y; 
-      });
-    var n = nodes.length,
-      i = 0;
-    while (++i < n) {
-    nodes[i] = repulsionCalm(nodes[i]);
-    // console.log(nodes[1].rx);
-    // console.log(nodes[1].ry);
-    // console.log('----');
-    }
-    var q = d3.geom.quadtree(nodes);
-    i = 0;
-    while (++i < n) {
-      q.visit(collide(nodes[i]));
-    }
-});
-svg.on("mousemove", function() {
-  var p1 = d3.mouse(this);
-  cursor.x = p1[0];
-  cursor.y = p1[1];
-});
-svg.on("mouseleave", function() {
-  cursor.x = cursor.y = -cursor.force;
-});
+		var q = d3.geom.quadtree(nodes)
+			n = nodes.length,
+			i = 0;
+		while (++i < n) {
+			nodes[i] = repulsionCalm(nodes[i]);
+			q.visit(collide(nodes[i]));
+		}
+	};
 
-function collide(node) {
-  var r = node.radius + 16,
-      nx1 = node.x - r,
-      nx2 = node.x + r,
-      ny1 = node.y - r,
-      ny2 = node.y + r;
-  return function(quad, x1, y1, x2, y2) {
-    if (quad.point && (quad.point !== node)) {
-      var x = node.x - quad.point.x,
-          y = node.y - quad.point.y,
-          l = Math.sqrt(x * x + y * y),
-          r = node.radius + quad.point.radius;
-      if (l < r) {
-    var target = false;
-    var me = false;
-    if(node.cursor){
-      me = node;
-      target = quad.point;
-    } else if(quad.point.cursor){
-      me = quad.point;
-      target = node;
-    }
-    if(target){
-      target = cursorRepulsion(me, target);
-    } else {
-        l = (l - r) / l * .5;
-        var rx = node.rx, ry = node.ry;
-        node.rx = quad.point.rx;
-        node.ry = quad.point.ry;
-        quad.point.rx = rx;
-        quad.point.ry = ry;
-        node.x -= x *= l;
-        node.y -= y *= l;
-        quad.point.x += x;
-        quad.point.y += y;
-      }
-    }}
-    return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
-  };
-}
-function cursorRepulsion(me, target){
-  var dist = {
-    x: target.x - me.x,
-    y: target.y - me.y
-  }
-  target.rx += dist.x * 0.005;
-  target.ry += dist.y * 0.005;
-  return target;
-}
-function repulsionCalm(node){
-  // console.log(node.dx);
-  if(node.rx > 0 && node.rx > node.dx){
-    node.rx -= 0.05;
-    if(node.rx < node.dx) node.rx = node.dx;
-  } else if(node.rx < 0 && (node.rx * node.rx > node.dx * node.dx)) {
-    node.rx += 0.05;
-    if(node.rx * node.rx < node.dx * node.dx) node.rx = -1*node.dx;
-  }
-  if(node.ry > 0 && node.ry > node.dy){
-    node.ry -= 0.05;
-    if(node.ry < node.dy) node.ry = node.dy;
-  } else if(node.ry < 0 && (node.ry * node.ry > node.dy * node.dy)) {
-    node.ry += 0.05;
-    if(node.ry * node.ry < node.dy * node.dy) node.ry = -1*node.dy;
-  }
-  // console.log(node.rx);
-  return node;
-}
+	function collide(node) {
+		//NOTE рассчеты для столкновения
+		var r = node.radius + 16,
+		nx1 = node.x - r,
+		nx2 = node.x + r,
+		ny1 = node.y - r,
+		ny2 = node.y + r;
+		return function(quad, x1, y1, x2, y2) {
+			if (quad.point && (quad.point !== node)) {
+				var x = node.x - quad.point.x,
+				y = node.y - quad.point.y,
+				l = Math.sqrt(x * x + y * y),
+				r = node.radius + quad.point.radius;
+				if (l < r) {
+					var target = false;
+					var me = false;
+					if(node.cursor){
+						me = node;
+						target = quad.point;
+					} else if(quad.point.cursor){
+						me = quad.point;
+						target = node;
+					}
+					if(target){
+						//NOTE рассчитываем взаимодействие с курсором
+						target = cursorRepulsion(me, target);
+					} else {
+						//NOTE рассчитываем взаимодействие двух точек
+						l = (l - r) / l * .5;
+						var rx = node.rx, ry = node.ry;
+						node.rx = quad.point.rx;
+						node.ry = quad.point.ry;
+						quad.point.rx = rx;
+						quad.point.ry = ry;
+						node.x -= x *= l;
+						node.y -= y *= l;
+						quad.point.x += x;
+						quad.point.y += y;
+					}
+				}}
+				return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+			};
+	}
+	function cursorRepulsion(me, target){
+		//NOTE рассчеты взаимодействия курсора и точки
+		var dist = {
+			x: target.x - me.x,
+			y: target.y - me.y
+		}
+		target.rx += dist.x * 0.005;
+		target.ry += dist.y * 0.005;
+		return target;
+	}
+	function repulsionCalm(node){
+		//NOTE постепенный возврат точки к первоначальному состоянию
+		node.rx = directionCalm(node.rx, node.dx);
+		node.ry = directionCalm(node.ry, node.dy);
+		return node;
+	}
+	function directionCalm(r, d){
+		//NOTE возврат скорости движения по оси к первоначальному состоянию
+		var tickReduction = 0.05;
+		if(r > 0 && r > d){
+			r -= tickReduction;
+			if(r < d) r = d;
+		} else if(r < 0 && (r * r > d * d)) {
+			r += tickReduction;
+			if(r * r < d * d) r = -1*d;
+		}
+		return r;
+	}
+
+	//NOTE вспомогательные переменные
+	var width = 960,
+	height = 500,
+	radius = 7,
+	number =101,
+	color = d3.scale.category10().domain(['blue','orange','green','red']),
+	nodes = d3.range(number).map(function() {
+		var pos = {
+			x:0, y:0, //NOTE координаты точки
+			dx:.5, dy:.5, //NOTE своя скорость точки
+			radius:radius, 
+			cursor: false, 
+			rx: 0, ry: 0 //NOTE изменяемая скорость точки
+		};
+		calcStartParams(pos)
+		return pos;
+	}),
+	start = Date.now(),
+	frames = 0;
+
+	var svg = setSvg();
+	setCursor(svg);
+	var circles = setCircles(svg);
+	var text = setFrameCounter(svg);
+	d3.timer(function(){randomMovement();});
 </script>
