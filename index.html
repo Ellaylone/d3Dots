@@ -7,10 +7,10 @@
 var width = 960,
   height = 500,
   radius = 7,
-  number =2,
+  number =21,
   color = d3.scale.category10().domain(['blue','orange','green','red']),
   nodes = d3.range(number).map(function() {
-    var pos = {x:0, y:0, dx:.5, dy:.5, radius:radius, cursor: false};
+    var pos = {x:0, y:0, dx:.5, dy:.5, radius:radius, cursor: false, rx: 0, ry: 0};
     calcStartPosition(pos)
     return pos;
   });
@@ -22,11 +22,14 @@ function calcStartPosition(pos){
   pos.y = height * Math.random();
   if(pos.y < borderPos.yMin) pos.y = borderPos.yMin;
   if(pos.y > borderPos.yMax) pos.y = borderPos.yMax;
-  pos.dx = Math.random() + 1;
-  pos.dy = Math.random() + 1;
+  pos.rx = pos.dx = Math.random()*3+1;
+  pos.ry = pos.dy = Math.random()*3+1;
 }
 cursor = nodes[0];
-cursor.radius = 30;
+cursor.force = 150;
+cursor.x = -cursor.force;
+cursor.y = -cursor.force;
+cursor.radius = cursor.force;
 cursor.cursor = true;
 
 var svg = d3.select("body").append("svg")
@@ -64,30 +67,37 @@ d3.timer(function() {
 
   circle
       .attr("cx", function(d) { 
-          d.x += d.dx; 
+          d.x += d.rx; 
           if (d.x > (width - radius)) {
-            d.dx = -1 * d.dx;
+            d.rx = -1 * d.rx;
             d.x = (width - radius);
           } else if (d.x < radius) {
-            d.dx = -1 * d.dx;
+            d.rx = -1 * d.rx;
             d.x = radius;
           }
           return d.x;  
         })
       .attr("cy", function(d) {
-        d.y += d.dy; 
+        d.y += d.ry; 
         if (d.y > (height - radius)) {
-          d.dy = -1 * d.dy; 
+          d.ry = -1 * d.ry; 
           d.y = (height - radius);
         } else if (d.y < radius) {
-          d.dy = -1 * d.dy;
+          d.ry = -1 * d.ry;
           d.y = radius;
         }
         return d.y; 
       });
-    var q = d3.geom.quadtree(nodes),
-      i = 0,
-      n = nodes.length;
+    var n = nodes.length,
+      i = 0;
+    while (++i < n) {
+    nodes[i] = repulsionCalm(nodes[i]);
+    // console.log(nodes[1].rx);
+    // console.log(nodes[1].ry);
+    // console.log('----');
+    }
+    var q = d3.geom.quadtree(nodes);
+    i = 0;
     while (++i < n) {
       q.visit(collide(nodes[i]));
     }
@@ -98,8 +108,7 @@ svg.on("mousemove", function() {
   cursor.y = p1[1];
 });
 svg.on("mouseleave", function() {
-  cursor.x = -2 * cursor.repuslionForce;
-  cursor.y = -2 * cursor.repuslionForce;
+  cursor.x = cursor.y = -cursor.force;
 });
 
 function collide(node) {
@@ -125,19 +134,14 @@ function collide(node) {
       target = node;
     }
     if(target){
-      if((me.x > target.x && target.dx > 0) || (me.x < target.x && target.dx < 0)){
-        target.dx *= -1;
-      }
-      if((me.y > target.y && target.dy > 0) || (me.y < target.y && target.dy < 0)){
-        target.dy *= -1;
-      }
+      target = cursorRepulsion(me, target);
     } else {
         l = (l - r) / l * .5;
-        var dx = node.dx, dy = node.dy;
-        node.dx = quad.point.dx;
-        node.dy = quad.point.dy;
-        quad.point.dx = dx;
-        quad.point.dy = dy;
+        var rx = node.rx, ry = node.ry;
+        node.rx = quad.point.rx;
+        node.ry = quad.point.ry;
+        quad.point.rx = rx;
+        quad.point.ry = ry;
         node.x -= x *= l;
         node.y -= y *= l;
         quad.point.x += x;
@@ -147,5 +151,32 @@ function collide(node) {
     return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
   };
 }
-
+function cursorRepulsion(me, target){
+  var dist = {
+    x: target.x - me.x,
+    y: target.y - me.y
+  }
+  target.rx += dist.x * 0.005;
+  target.ry += dist.y * 0.005;
+  return target;
+}
+function repulsionCalm(node){
+  // console.log(node.dx);
+  if(node.rx > 0 && node.rx > node.dx){
+    node.rx -= 0.05;
+    if(node.rx < node.dx) node.rx = node.dx;
+  } else if(node.rx < 0 && (node.rx * node.rx > node.dx * node.dx)) {
+    node.rx += 0.05;
+    if(node.rx * node.rx < node.dx * node.dx) node.rx = -1*node.dx;
+  }
+  if(node.ry > 0 && node.ry > node.dy){
+    node.ry -= 0.05;
+    if(node.ry < node.dy) node.ry = node.dy;
+  } else if(node.ry < 0 && (node.ry * node.ry > node.dy * node.dy)) {
+    node.ry += 0.05;
+    if(node.ry * node.ry < node.dy * node.dy) node.ry = -1*node.dy;
+  }
+  // console.log(node.rx);
+  return node;
+}
 </script>
